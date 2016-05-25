@@ -17,7 +17,43 @@ class BioMolecule():
 
     # 1. Write setter and getter methods for all attributes.
     #    Use @property decorators as dicussed in the lecture
+
+    #getter methods
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def name(self):
+        return self._name
+    
+    @property
+    def mass(self):
+        return self._mass
+   
     # 2. In the setter methods check for the type of each attribute.
+
+    #setter methods
+    @id.setter
+    def id(self, value):    
+        if not isinstance(value, int):
+                raise TypeError("Must be Integer.")
+        else:
+            self._id=value
+
+    @name.setter
+    def name(self, value):    
+        if not isinstance(value, str):
+                raise TypeError("Must be String.")
+        else:
+            self._name=value
+
+    @mass.setter
+    def mass(self, value):    
+        if not isinstance(value, float):
+                raise TypeError("Must be Float.")
+        else:
+            self._mass=value
 
 class Polymer(BioMolecule):
     """
@@ -32,9 +68,23 @@ class Polymer(BioMolecule):
     def __init__(self, id, name, sequence, mass=0.):
         # 3. Initialize the parent class correctly
         self.sequence = sequence
+        super().__init__(id, name, mass)
 
     
     # 4. Write getter and setter for sequence, again check for type
+    @property
+    def sequence(self):
+        return self._sequence
+    
+
+    @sequence.setter
+    def sequence(self, value):    
+        if not isinstance(value, str):
+                raise TypeError("Must be String.")
+        else:
+            self._sequence=value
+
+
     # 5. run in ipython, instantiate this class, and test it
     def __getitem__(self, value):
         """
@@ -47,7 +97,7 @@ class Polymer(BioMolecule):
         """
          Enables changing of sequence characters via the indexing operators.       
         """
-        tmp = list(sequence)
+        tmp = list(self.sequence)
         tmp[key] = value
         self.sequence = "".join(tmp)
 
@@ -55,14 +105,21 @@ class Polymer(BioMolecule):
 class MRNA(Polymer):
     def __init__(self, id, name, sequence, mass=0.):
         # 6. Initialize the parent class correctly
+        super().__init__(id, name, sequence, mass)
 
         # 7. Create a list that stores if a ribosome is bound for each
         # codon (triplet).
         self.binding = [] # use this attribute for 7.
+        for i in range(0, len(sequence)):
+            self.binding.append(0)
 
     def calculate_mass(self):
         NA_mass = {'A': 1.0, 'U': 2.2, 'G':2.1, 'C':1.3}
         # 8. calculate the mass for the whole sequence
+        mass=0
+        for base in list(self.sequence):
+            mass+=NA_mass[base]
+        return mass
 
 class Protein(Polymer):
     """Protein with Polymer features and mass calculation. A global class
@@ -81,9 +138,14 @@ class Protein(Polymer):
     def __init__(self, id, name, sequence, mass=0.):
         super().__init__(id, name, sequence, mass)
         self.__class__.number_of_proteins += 1 #  increase instance counter
-        self.mass = self.calculate_mass()
+        self.calculate_mass()
 
     # 9. implement the elongation feature described in the docstring. (__add__)
+
+    def __add__(self,extension):
+        if not isinstance(extension, str):
+                raise TypeError
+        self.sequence=self.sequence+extension
 
     def calculate_mass(self):
         AA_mass = {"A": 89.0929, "R": 175.208, "N": 132.118, "D": 132.094, "C": 121.158, "Q": 146.144,
@@ -139,9 +201,20 @@ class Ribosome(BioMolecule):
                                                     # mrna still free
                                                     # at pos 0
             self.bound_mrna = mrna
-            self.nascent_prot = None  # 10. Instantiate a new Protein
+            self.nascent_prot = Protein(mrna.id, mrna.name, '', 0.0)  # 10. Instantiate a new Protein
             self.position = 0
-            self.bound_mrna.binding  # 11. Mark position 0 of MRNA to be bound by ribosome
+            mrna.binding[0]=1     # 11. Mark position 0 of MRNA to be bound by ribosome
+
+    def terminate(self):
+        """
+        Splits the ribosome/MRNA complex and returns a protein.
+        """
+        # 13. Dissociate the complex.
+        mrna=self.bound_mrna
+        mrna.binding[self.position]=0
+        self.position=None
+        self.bound_mrna=False
+        return self.nascent_prot
             
     def elongate(self):
         """Elongate the new protein by the correct amino acid. Check if an
@@ -152,15 +225,25 @@ class Ribosome(BioMolecule):
         """
         if not self.bound_mrna: # can't elongate because there is no MRNA
             return False
+        else:
+            mrna=self.bound_mrna
+
+        pos=self.position+3
+        self.position+=3
 
         # 12. Implement the described features.
-
-    def terminate(self):
-        """
-        Splits the ribosome/MRNA complex and returns a protein.
-        """
-        # 13. Dissociate the complex.
+        if mrna.binding[pos]==0:
+            for i in range(0,3):
+                    mrna.binding[pos+i]=1
+                    mrna.binding[pos-i-1]=0
+            triplet=mrna.sequence[pos:pos+3]
+            aa=self.code[triplet]
+            if aa != '*':
+                self.nascent_prot.sequence+=aa
+            else:
+                self.terminate()
         return self.nascent_prot
+
         
 
 class Cell:
@@ -186,7 +269,18 @@ class Cell:
             
 if __name__ == "__main__":  # the following is called if the module is executed
     # 14. Instantiate the Cell class and call the simulation method.
-    pass
+    mycell=Cell()
+    mycell.simulate(100)
+
+
+   # myrib=Ribosome(46357,'bigrib')
+    #mrna=MRNA(806,'elav','CGGACCACGGACACGCGGUAA',893.856)
+    #myrib.initiate(mrna)
+    #for pos in range(0,int(len(mrna.sequence)/3)-1):
+    #    print('do')
+    #    prot=myrib.elongate()
+    #print(prot.sequence)
+    #pass
 
 # 15. Generate a set of mRNA sequences to initiate the cell.
 # 16. Implement protein degradation.
